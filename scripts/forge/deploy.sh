@@ -66,6 +66,7 @@ fi
 
 # Laravel caches and migrations.
 $PHP_BIN artisan optimize:clear
+$PHP_BIN artisan tdmv:reconcile-migrations
 $PHP_BIN artisan migrate --force
 $PHP_BIN artisan storage:link || true
 $PHP_BIN artisan config:cache

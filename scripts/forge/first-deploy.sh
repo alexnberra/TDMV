@@ -61,6 +61,7 @@ if ! grep -qE '^APP_KEY=base64:' .env 2>/dev/null; then
   $PHP_BIN artisan key:generate --force
 fi
 
+$PHP_BIN artisan tdmv:reconcile-migrations
 $PHP_BIN artisan migrate --force
 $PHP_BIN artisan db:seed --force
 $PHP_BIN artisan storage:link || true
