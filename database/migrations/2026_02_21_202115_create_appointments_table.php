@@ -38,8 +38,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['tribe_id', 'user_id', 'status', 'scheduled_for']);
-            $table->index(['office_location_id', 'scheduled_for']);
+            $table->index(['tribe_id', 'user_id', 'status', 'scheduled_for'], 'appointments_tribe_user_status_sched_idx');
+            $table->index(['office_location_id', 'scheduled_for'], 'appointments_office_sched_idx');
         });
     }
 

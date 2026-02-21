@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['tribe_id', 'owner_user_id', 'is_active']);
+            $table->index(['tribe_id', 'owner_user_id', 'is_active'], 'households_tribe_owner_active_idx');
         });
     }
 

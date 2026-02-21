@@ -26,8 +26,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['vehicle_id', 'status', 'expiration_date']);
-            $table->unique(['vehicle_id', 'policy_number']);
+            $table->index(['vehicle_id', 'status', 'expiration_date'], 'ins_policies_vehicle_status_exp_idx');
+            $table->unique(['vehicle_id', 'policy_number'], 'ins_policies_vehicle_policy_unq');
         });
     }
 

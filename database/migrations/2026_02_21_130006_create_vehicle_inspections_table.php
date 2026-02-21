@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['vehicle_id', 'result', 'inspection_date']);
+            $table->index(['vehicle_id', 'result', 'inspection_date'], 'vehicle_inspections_vehicle_result_date_idx');
         });
     }
 

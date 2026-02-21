@@ -25,7 +25,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['user_id', 'status', 'placard_type']);
+            $table->index(['user_id', 'status', 'placard_type'], 'disability_placards_user_status_type_idx');
         });
     }
 

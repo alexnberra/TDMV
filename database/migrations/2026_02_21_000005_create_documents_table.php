@@ -27,7 +27,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['application_id', 'document_type', 'status']);
+            $table->index(['application_id', 'document_type', 'status'], 'docs_app_type_status_idx');
         });
     }
 

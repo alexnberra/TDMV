@@ -21,8 +21,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['household_id', 'user_id']);
-            $table->index(['user_id', 'relationship_type', 'is_minor']);
+            $table->unique(['household_id', 'user_id'], 'household_members_household_user_unq');
+            $table->index(['user_id', 'relationship_type', 'is_minor'], 'household_members_user_rel_minor_idx');
         });
     }
 

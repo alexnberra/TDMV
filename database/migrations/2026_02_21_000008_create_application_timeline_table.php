@@ -17,7 +17,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamp('created_at');
 
-            $table->index(['application_id', 'created_at']);
+            $table->index(['application_id', 'created_at'], 'app_timeline_app_created_idx');
         });
     }
 

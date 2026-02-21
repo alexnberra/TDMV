@@ -19,8 +19,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['business_account_id', 'vehicle_id']);
-            $table->index(['vehicle_id', 'status']);
+            $table->unique(['business_account_id', 'vehicle_id'], 'fleet_vehicles_biz_vehicle_unq');
+            $table->index(['vehicle_id', 'status'], 'fleet_vehicles_vehicle_status_idx');
         });
     }
 

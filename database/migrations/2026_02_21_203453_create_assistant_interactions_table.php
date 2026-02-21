@@ -23,9 +23,9 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamps();
 
-            $table->index(['tribe_id', 'created_at']);
-            $table->index(['user_id', 'created_at']);
-            $table->index(['intent', 'created_at']);
+            $table->index(['tribe_id', 'created_at'], 'assistant_interactions_tribe_created_idx');
+            $table->index(['user_id', 'created_at'], 'assistant_interactions_user_created_idx');
+            $table->index(['intent', 'created_at'], 'assistant_interactions_intent_created_idx');
         });
     }
 

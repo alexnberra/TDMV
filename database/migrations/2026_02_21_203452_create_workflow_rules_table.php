@@ -23,8 +23,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['tribe_id', 'key']);
-            $table->index(['tribe_id', 'is_active']);
+            $table->unique(['tribe_id', 'key'], 'workflow_rules_tribe_key_unq');
+            $table->index(['tribe_id', 'is_active'], 'workflow_rules_tribe_active_idx');
         });
     }
 

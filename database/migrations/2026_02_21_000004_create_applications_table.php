@@ -29,7 +29,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['case_number', 'user_id', 'status', 'service_type', 'submitted_at']);
+            $table->index(['case_number', 'user_id', 'status', 'service_type', 'submitted_at'], 'apps_case_user_status_type_sub_idx');
         });
     }
 

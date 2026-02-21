@@ -27,14 +27,14 @@ return new class extends Migration
             $table->timestamp('last_login_at')->nullable()->after('is_active');
             $table->softDeletes()->after('remember_token');
 
-            $table->index(['email', 'tribal_enrollment_id', 'tribe_id', 'role']);
+            $table->index(['email', 'tribal_enrollment_id', 'tribe_id', 'role'], 'users_email_enroll_tribe_role_idx');
         });
     }
 
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table): void {
-            $table->dropIndex(['email', 'tribal_enrollment_id', 'tribe_id', 'role']);
+            $table->dropIndex('users_email_enroll_tribe_role_idx');
             $table->dropConstrainedForeignId('tribe_id');
             $table->dropColumn([
                 'tribal_enrollment_id',

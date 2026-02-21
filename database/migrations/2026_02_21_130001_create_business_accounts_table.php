@@ -24,7 +24,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['tribe_id', 'business_name', 'is_active']);
+            $table->index(['tribe_id', 'business_name', 'is_active'], 'biz_accts_tribe_name_active_idx');
         });
     }
 

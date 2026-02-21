@@ -26,7 +26,7 @@ return new class extends Migration
             $table->text('refund_reason')->nullable();
             $table->timestamps();
 
-            $table->index(['transaction_id', 'application_id', 'status', 'paid_at']);
+            $table->index(['transaction_id', 'application_id', 'status', 'paid_at'], 'payments_txn_app_status_paid_idx');
         });
     }
 

@@ -16,8 +16,8 @@ return new class extends Migration
             $table->boolean('is_primary')->default(false);
             $table->timestamps();
 
-            $table->unique(['business_account_id', 'user_id']);
-            $table->index(['user_id', 'role']);
+            $table->unique(['business_account_id', 'user_id'], 'biz_acct_user_biz_user_unq');
+            $table->index(['user_id', 'role'], 'biz_acct_user_user_role_idx');
         });
     }
 

@@ -31,7 +31,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['vin', 'plate_number', 'owner_id', 'expiration_date', 'registration_status']);
+            $table->index(['vin', 'plate_number', 'owner_id', 'expiration_date', 'registration_status'], 'veh_vin_plate_owner_exp_status_idx');
         });
     }
 
