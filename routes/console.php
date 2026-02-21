@@ -6,6 +6,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -290,3 +291,68 @@ Artisan::command('tdmv:ensure-login-users {--mode=live : live|demo}', function (
 
     return self::SUCCESS;
 })->purpose('Ensure default login users exist with known credentials');
+
+Artisan::command('tdmv:debug-login {email=admin@tribe.gov} {--password=password}', function () {
+    $email = (string) $this->argument('email');
+    $password = (string) $this->option('password');
+
+    $this->line('App environment: '.config('app.env'));
+    $this->line('Default DB connection: '.config('database.default'));
+    $this->line('Configured DB host: '.(string) config('database.connections.'.config('database.default').'.host'));
+    $this->line('Configured DB database: '.(string) config('database.connections.'.config('database.default').'.database'));
+    $this->line('Active DB database: '.(string) DB::connection()->getDatabaseName());
+
+    if (! Schema::hasTable('users')) {
+        $this->error('users table does not exist.');
+
+        return self::FAILURE;
+    }
+
+    /** @var \App\Models\User|null $user */
+    $user = User::withTrashed()
+        ->where('email', $email)
+        ->first(['id', 'email', 'password', 'role', 'is_active', 'deleted_at', 'tribe_id']);
+
+    if (! $user) {
+        $this->error("User not found: {$email}");
+
+        return self::FAILURE;
+    }
+
+    $this->info("User found: {$user->email} (id={$user->id}, role={$user->role})");
+    $this->line('is_active: '.($user->is_active ? 'true' : 'false'));
+    $this->line('deleted_at: '.($user->deleted_at?->toDateTimeString() ?? 'null'));
+    $this->line('tribe_id: '.($user->tribe_id ?? 'null'));
+    $this->line('password hash check: '.(Hash::check($password, (string) $user->password) ? 'PASS' : 'FAIL'));
+
+    $apiUser = User::query()->apiAuth()->where('email', $email)->first();
+    $this->line('apiAuth() query user found: '.($apiUser ? 'yes' : 'no'));
+
+    return self::SUCCESS;
+})->purpose('Debug login readiness for a specific email and password');
+
+Artisan::command('tdmv:set-login-password {email} {password=password}', function () {
+    $email = (string) $this->argument('email');
+    $password = (string) $this->argument('password');
+
+    /** @var \App\Models\User|null $user */
+    $user = User::withTrashed()->where('email', $email)->first();
+
+    if (! $user) {
+        $this->error("User not found: {$email}");
+
+        return self::FAILURE;
+    }
+
+    $user->forceFill([
+        'password' => $password,
+        'is_active' => true,
+        'email_verified_at' => $user->email_verified_at ?? now(),
+    ]);
+    $user->deleted_at = null;
+    $user->save();
+
+    $this->info("Password reset for {$email}.");
+
+    return self::SUCCESS;
+})->purpose('Force reset a user password for login recovery');
