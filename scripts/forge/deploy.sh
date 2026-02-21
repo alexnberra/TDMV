@@ -65,9 +65,9 @@ if [ -f package-lock.json ]; then
 fi
 
 # Laravel caches and migrations.
+$PHP_BIN artisan optimize:clear
 $PHP_BIN artisan migrate --force
 $PHP_BIN artisan storage:link || true
-$PHP_BIN artisan optimize:clear
 $PHP_BIN artisan config:cache
 $PHP_BIN artisan route:cache
 $PHP_BIN artisan view:cache
