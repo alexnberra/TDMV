@@ -1,0 +1,151 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\UserProfileResource;
+use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules;
+
+class AuthController extends Controller
+{
+    public function register(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'tribe_id' => 'required|exists:tribes,id',
+            'tribal_enrollment_id' => 'required|string|max:255|unique:users,tribal_enrollment_id',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'date_of_birth' => 'required|date',
+            'email' => 'required|string|email|max:255|unique:users,email',
+            'phone' => 'required|string|max:50',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'address_line1' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
+            'state' => 'required|string|max:255',
+            'zip_code' => 'required|string|max:20',
+        ]);
+
+        $user = User::create([
+            ...$validated,
+            'name' => trim($validated['first_name'].' '.$validated['last_name']),
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        $token = $user->createToken('auth-token')->plainTextToken;
+
+        return response()->json([
+            'user' => UserProfileResource::make(
+                $this->hydrateUserForResponse($user)
+            )->resolve(),
+            'token' => $token,
+        ], 201);
+    }
+
+    public function login(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
+
+        $user = User::query()
+            ->apiAuth()
+            ->where('email', $validated['email'])
+            ->first();
+
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'message' => 'Invalid credentials',
+            ], 401);
+        }
+
+        if (! $user->is_active) {
+            return response()->json([
+                'message' => 'Account is inactive',
+            ], 403);
+        }
+
+        $user->update(['last_login_at' => now()]);
+
+        $token = $user->createToken('auth-token')->plainTextToken;
+
+        return response()->json([
+            'user' => UserProfileResource::make(
+                $this->hydrateUserForResponse($user)
+            )->resolve(),
+            'token' => $token,
+        ]);
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        $request->user()?->currentAccessToken()?->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully',
+        ]);
+    }
+
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $status = Password::sendResetLink([
+            'email' => $validated['email'],
+        ]);
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            return response()->json(['message' => __($status)], 422);
+        }
+
+        return response()->json([
+            'message' => 'Password reset link sent to your email',
+        ]);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'token' => 'required|string',
+            'email' => 'required|email|exists:users,email',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        $status = Password::reset(
+            $validated,
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            return response()->json(['message' => __($status)], 422);
+        }
+
+        return response()->json([
+            'message' => 'Password reset successfully',
+        ]);
+    }
+
+    private function hydrateUserForResponse(User $user): User
+    {
+        return $user->loadMissing([
+            'tribe' => fn ($query) => $query->apiPublic(),
+            'notificationPreferences' => fn ($query) => $query->apiSelect(),
+        ]);
+    }
+}
