@@ -1,9 +1,12 @@
 <?php
 
+use App\Models\Tribe;
+use App\Models\User;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -149,3 +152,142 @@ Artisan::command('tdmv:reconcile-migrations', function () {
 
     return self::SUCCESS;
 })->purpose('Mark create-table migrations as applied when matching tables already exist');
+
+Artisan::command('tdmv:ensure-login-users {--mode=live : live|demo}', function () {
+    if (! Schema::hasTable('tribes') || ! Schema::hasTable('users')) {
+        $this->error('Required tables are missing. Run migrations first.');
+
+        return self::FAILURE;
+    }
+
+    $mode = strtolower((string) $this->option('mode'));
+    if (! in_array($mode, ['live', 'demo'], true)) {
+        $this->error('Mode must be live or demo.');
+
+        return self::FAILURE;
+    }
+
+    $tribe = Tribe::query()->firstOrCreate(
+        ['code' => 'FTN'],
+        [
+            'name' => 'First Tribal Nation',
+            'slug' => 'first-tribal-nation',
+            'primary_color' => '#2563eb',
+            'contact_email' => 'contact@tribe.gov',
+            'contact_phone' => '(555) 123-4567',
+            'address' => '123 Tribal Office Road, Headquarters, ST 12345',
+            'is_active' => true,
+            'settings' => [
+                'fees' => [
+                    'registration' => 45.00,
+                    'plate' => 15.00,
+                    'processing' => 5.00,
+                ],
+            ],
+        ]
+    );
+
+    $upsertUser = function (array $attributes) use ($tribe): User {
+        $user = User::withTrashed()->where('email', $attributes['email'])->first();
+
+        if (! $user) {
+            $user = new User();
+        }
+
+        $user->forceFill([
+            'tribe_id' => $tribe->id,
+            'tribal_enrollment_id' => $attributes['tribal_enrollment_id'],
+            'name' => $attributes['name'],
+            'first_name' => $attributes['first_name'],
+            'last_name' => $attributes['last_name'],
+            'date_of_birth' => $attributes['date_of_birth'],
+            'email' => $attributes['email'],
+            'phone' => $attributes['phone'],
+            'role' => $attributes['role'],
+            'address_line1' => $attributes['address_line1'],
+            'city' => $attributes['city'],
+            'state' => $attributes['state'],
+            'zip_code' => $attributes['zip_code'],
+            'is_active' => true,
+            'email_verified_at' => now(),
+            'phone_verified_at' => now(),
+            'password' => Hash::make('password'),
+        ]);
+
+        $user->deleted_at = null;
+        $user->save();
+
+        return $user;
+    };
+
+    $admin = $upsertUser([
+        'tribal_enrollment_id' => 'ADMIN-001',
+        'name' => 'Admin User',
+        'first_name' => 'Admin',
+        'last_name' => 'User',
+        'date_of_birth' => '1980-01-01',
+        'email' => 'admin@tribe.gov',
+        'phone' => '(555) 111-1111',
+        'role' => 'admin',
+        'address_line1' => '123 Admin St',
+        'city' => 'Headquarters',
+        'state' => 'ST',
+        'zip_code' => '12345',
+    ]);
+
+    $this->info("Ensured login: {$admin->email} / password");
+
+    if ($mode === 'demo') {
+        $demoUsers = [
+            [
+                'tribal_enrollment_id' => 'TID-123456',
+                'name' => 'John Doe',
+                'first_name' => 'John',
+                'last_name' => 'Doe',
+                'date_of_birth' => '1990-05-15',
+                'email' => 'john@example.com',
+                'phone' => '(555) 234-5678',
+                'role' => 'member',
+                'address_line1' => '456 Member Lane',
+                'city' => 'Reservation',
+                'state' => 'ST',
+                'zip_code' => '12346',
+            ],
+            [
+                'tribal_enrollment_id' => 'TID-654321',
+                'name' => 'Jane Doe',
+                'first_name' => 'Jane',
+                'last_name' => 'Doe',
+                'date_of_birth' => '1992-07-11',
+                'email' => 'jane@example.com',
+                'phone' => '(555) 345-6789',
+                'role' => 'member',
+                'address_line1' => '456 Member Lane',
+                'city' => 'Reservation',
+                'state' => 'ST',
+                'zip_code' => '12346',
+            ],
+            [
+                'tribal_enrollment_id' => 'TID-654322',
+                'name' => 'Ava Doe',
+                'first_name' => 'Ava',
+                'last_name' => 'Doe',
+                'date_of_birth' => '2012-04-21',
+                'email' => 'ava@example.com',
+                'phone' => '(555) 456-7890',
+                'role' => 'member',
+                'address_line1' => '456 Member Lane',
+                'city' => 'Reservation',
+                'state' => 'ST',
+                'zip_code' => '12346',
+            ],
+        ];
+
+        foreach ($demoUsers as $demoUser) {
+            $user = $upsertUser($demoUser);
+            $this->info("Ensured login: {$user->email} / password");
+        }
+    }
+
+    return self::SUCCESS;
+})->purpose('Ensure default login users exist with known credentials');

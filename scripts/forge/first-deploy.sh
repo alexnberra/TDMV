@@ -64,6 +64,7 @@ fi
 $PHP_BIN artisan tdmv:reconcile-migrations
 $PHP_BIN artisan migrate --force
 $PHP_BIN artisan db:seed --force
+$PHP_BIN artisan tdmv:ensure-login-users --mode="${TDMV_SEED_MODE:-live}"
 $PHP_BIN artisan storage:link || true
 $PHP_BIN artisan config:cache
 $PHP_BIN artisan route:cache
