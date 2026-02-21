@@ -5,6 +5,7 @@
 2. In Forge, ensure `FORGE_SITE_PATH` is available (Forge provides this), and it points to your site path:
    - Usually `/home/forge/<your-site-domain>`
    - If you override it, use either full path or a path relative to `/home/forge`
+3. Set Forge Node runtime to `22.x` (or at minimum `20.19+`) for Vite 7 and Tailwind native bindings.
 3. Copy values from `deploy/forge/.env.production.example` into Forge's environment editor.
 4. Set all secrets (DB, AWS, Stripe, Mail) to real values.
 

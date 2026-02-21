@@ -9,12 +9,50 @@ case "$SITE_PATH" in
 esac
 
 PHP_BIN="${FORGE_PHP:-php}"
+REQUIRED_NODE="20.19.0"
+
+ensure_node_runtime() {
+  local current_node="0.0.0"
+
+  if command -v node >/dev/null 2>&1; then
+    current_node="$(node -v | sed 's/^v//')"
+  fi
+
+  if ! printf '%s\n%s\n' "$REQUIRED_NODE" "$current_node" | sort -V -C; then
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+
+    if [ -s "$NVM_DIR/nvm.sh" ]; then
+      # shellcheck disable=SC1090
+      . "$NVM_DIR/nvm.sh"
+      nvm install 22 --latest-npm >/dev/null
+      nvm use 22 >/dev/null
+      current_node="$(node -v | sed 's/^v//')"
+    fi
+  fi
+
+  if ! printf '%s\n%s\n' "$REQUIRED_NODE" "$current_node" | sort -V -C; then
+    echo "Node.js ${REQUIRED_NODE}+ is required. Current: ${current_node}."
+    echo "Set your Forge Node version to 22.x and redeploy."
+    exit 1
+  fi
+}
+
+build_frontend_assets() {
+  npm ci --no-audit --no-fund --include=optional
+
+  if ! npm run build; then
+    echo "Initial frontend build failed; retrying clean install for optional native dependencies..."
+    rm -rf node_modules
+    npm install --no-audit --no-fund --include=optional
+    npm run build
+  fi
+}
 
 composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 if [ -f package-lock.json ]; then
-  npm ci --no-audit --no-fund
-  npm run build
+  ensure_node_runtime
+  build_frontend_assets
 fi
 
 $PHP_BIN artisan key:generate --force
