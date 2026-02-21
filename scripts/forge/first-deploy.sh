@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-cd /home/forge/${FORGE_SITE_PATH}
+SITE_PATH="${FORGE_SITE_PATH:?FORGE_SITE_PATH is required}"
+
+case "$SITE_PATH" in
+  /*) cd "$SITE_PATH" ;;
+  *) cd "/home/forge/$SITE_PATH" ;;
+esac
 
 PHP_BIN="${FORGE_PHP:-php}"
 

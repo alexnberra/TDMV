@@ -2,8 +2,9 @@
 
 ## 1) App Environment
 1. Create your Forge site and point it to this repository.
-2. In Forge, set the site directory variable:
-   - `FORGE_SITE_PATH=TDMV`
+2. In Forge, ensure `FORGE_SITE_PATH` is available (Forge provides this), and it points to your site path:
+   - Usually `/home/forge/<your-site-domain>`
+   - If you override it, use either full path or a path relative to `/home/forge`
 3. Copy values from `deploy/forge/.env.production.example` into Forge's environment editor.
 4. Set all secrets (DB, AWS, Stripe, Mail) to real values.
 
