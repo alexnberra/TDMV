@@ -8,7 +8,6 @@ use App\Models\Tribe;
 use App\Models\User;
 use App\Models\WorkflowRule;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class LiveDataSeeder extends Seeder
 {
@@ -41,7 +40,7 @@ class LiveDataSeeder extends Seeder
             'date_of_birth' => '1980-01-01',
             'email' => 'admin@tribe.gov',
             'phone' => '(555) 111-1111',
-            'password' => Hash::make('password'),
+            'password' => 'password',
             'role' => 'admin',
             'address_line1' => '123 Admin St',
             'city' => 'Headquarters',

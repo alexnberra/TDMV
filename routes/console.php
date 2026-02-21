@@ -6,7 +6,6 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -211,7 +210,7 @@ Artisan::command('tdmv:ensure-login-users {--mode=live : live|demo}', function (
             'is_active' => true,
             'email_verified_at' => now(),
             'phone_verified_at' => now(),
-            'password' => Hash::make('password'),
+            'password' => 'password',
         ]);
 
         $user->deleted_at = null;

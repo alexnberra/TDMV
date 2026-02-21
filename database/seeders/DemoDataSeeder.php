@@ -22,7 +22,6 @@ use App\Models\VehicleInspection;
 use App\Models\WorkflowRule;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -107,7 +106,7 @@ class DemoDataSeeder extends Seeder
             'date_of_birth' => '1990-05-15',
             'email' => 'john@example.com',
             'phone' => '(555) 234-5678',
-            'password' => Hash::make('password'),
+            'password' => 'password',
             'role' => 'member',
             'address_line1' => '456 Member Lane',
             'city' => 'Reservation',
@@ -127,7 +126,7 @@ class DemoDataSeeder extends Seeder
             'date_of_birth' => '1992-07-11',
             'email' => 'jane@example.com',
             'phone' => '(555) 345-6789',
-            'password' => Hash::make('password'),
+            'password' => 'password',
             'role' => 'member',
             'address_line1' => '456 Member Lane',
             'city' => 'Reservation',
@@ -147,7 +146,7 @@ class DemoDataSeeder extends Seeder
             'date_of_birth' => '2012-04-21',
             'email' => 'ava@example.com',
             'phone' => '(555) 456-7890',
-            'password' => Hash::make('password'),
+            'password' => 'password',
             'role' => 'member',
             'address_line1' => '456 Member Lane',
             'city' => 'Reservation',
