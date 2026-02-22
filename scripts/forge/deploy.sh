@@ -48,12 +48,21 @@ build_frontend_assets() {
   fi
 }
 
+ensure_laravel_paths() {
+  mkdir -p bootstrap/cache
+  mkdir -p resources/views
+  mkdir -p storage/app/public storage/app/private
+  mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views
+  mkdir -p storage/logs
+}
+
 $PHP_BIN artisan down --render="errors::503" || true
 
 # Pull latest code.
 git fetch origin "${FORGE_SITE_BRANCH}"
 git checkout "${FORGE_SITE_BRANCH}"
 git pull --ff-only origin "${FORGE_SITE_BRANCH}"
+ensure_laravel_paths
 
 # Backend dependencies.
 composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader

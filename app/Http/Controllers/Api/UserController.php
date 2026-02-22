@@ -7,6 +7,7 @@ use App\Http\Resources\UserProfileResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class UserController extends Controller
 {
@@ -48,9 +49,20 @@ class UserController extends Controller
 
     private function hydrateUserForResponse(User $user): User
     {
-        return $user->loadMissing([
-            'tribe' => fn ($query) => $query->apiPublic(),
-            'notificationPreferences' => fn ($query) => $query->apiSelect(),
-        ]);
+        $relations = [];
+
+        if (Schema::hasTable('tribes')) {
+            $relations['tribe'] = fn ($query) => $query->apiPublic();
+        }
+
+        if (Schema::hasTable('notification_preferences')) {
+            $relations['notificationPreferences'] = fn ($query) => $query->apiSelect();
+        }
+
+        if ($relations === []) {
+            return $user;
+        }
+
+        return $user->loadMissing($relations);
     }
 }

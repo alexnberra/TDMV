@@ -9,8 +9,11 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 use Illuminate\Validation\Rules;
 
 class AuthController extends Controller
@@ -41,7 +44,19 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        try {
+            $token = $this->issueApiToken($user);
+        } catch (Throwable $exception) {
+            Log::error('Failed to issue registration API token.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Authentication service is not ready. Please contact support.',
+            ], 503);
+        }
 
         return response()->json([
             'user' => UserProfileResource::make(
@@ -86,7 +101,19 @@ class AuthController extends Controller
 
         $user->update(['last_login_at' => now()]);
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        try {
+            $token = $this->issueApiToken($user);
+        } catch (Throwable $exception) {
+            Log::error('Failed to issue login API token.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'Authentication service is not ready. Please contact support.',
+            ], 503);
+        }
 
         return response()->json([
             'user' => UserProfileResource::make(
@@ -155,9 +182,29 @@ class AuthController extends Controller
 
     private function hydrateUserForResponse(User $user): User
     {
-        return $user->loadMissing([
-            'tribe' => fn ($query) => $query->apiPublic(),
-            'notificationPreferences' => fn ($query) => $query->apiSelect(),
-        ]);
+        $relations = [];
+
+        if (Schema::hasTable('tribes')) {
+            $relations['tribe'] = fn ($query) => $query->apiPublic();
+        }
+
+        if (Schema::hasTable('notification_preferences')) {
+            $relations['notificationPreferences'] = fn ($query) => $query->apiSelect();
+        }
+
+        if ($relations === []) {
+            return $user;
+        }
+
+        return $user->loadMissing($relations);
+    }
+
+    private function issueApiToken(User $user): string
+    {
+        if (! Schema::hasTable('personal_access_tokens')) {
+            throw new \RuntimeException('personal_access_tokens table is missing.');
+        }
+
+        return $user->createToken('auth-token')->plainTextToken;
     }
 }

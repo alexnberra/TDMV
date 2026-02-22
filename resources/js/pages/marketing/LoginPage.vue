@@ -32,10 +32,13 @@ async function handleSubmit(event: Event) {
     errorMessage.value = '';
 
     try {
-        await login(form.email, form.password);
+        await login(form.email.trim(), form.password);
         window.location.href = '/portal';
     } catch (error: any) {
-        errorMessage.value = error.response?.data?.message || 'Invalid credentials. Please try again.';
+        const message = typeof error?.response?.data?.message === 'string' ? error.response.data.message : '';
+        const status = error?.response?.status;
+
+        errorMessage.value = message || (status ? `Login failed (${status}). Please try again.` : 'Unable to reach the server. Please try again.');
     } finally {
         loading.value = false;
     }

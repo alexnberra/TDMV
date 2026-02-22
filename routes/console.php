@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Resources\UserProfileResource;
 use App\Models\Tribe;
 use App\Models\User;
 use Illuminate\Foundation\Inspiring;
@@ -295,12 +296,17 @@ Artisan::command('tdmv:ensure-login-users {--mode=live : live|demo}', function (
 Artisan::command('tdmv:debug-login {email=admin@tribe.gov} {--password=password}', function () {
     $email = (string) $this->argument('email');
     $password = (string) $this->option('password');
+    $identifier = Str::lower(trim($email));
 
     $this->line('App environment: '.config('app.env'));
     $this->line('Default DB connection: '.config('database.default'));
     $this->line('Configured DB host: '.(string) config('database.connections.'.config('database.default').'.host'));
     $this->line('Configured DB database: '.(string) config('database.connections.'.config('database.default').'.database'));
     $this->line('Active DB database: '.(string) DB::connection()->getDatabaseName());
+    $this->line('users table exists: '.(Schema::hasTable('users') ? 'yes' : 'no'));
+    $this->line('tribes table exists: '.(Schema::hasTable('tribes') ? 'yes' : 'no'));
+    $this->line('notification_preferences table exists: '.(Schema::hasTable('notification_preferences') ? 'yes' : 'no'));
+    $this->line('personal_access_tokens table exists: '.(Schema::hasTable('personal_access_tokens') ? 'yes' : 'no'));
 
     if (! Schema::hasTable('users')) {
         $this->error('users table does not exist.');
@@ -310,11 +316,12 @@ Artisan::command('tdmv:debug-login {email=admin@tribe.gov} {--password=password}
 
     /** @var \App\Models\User|null $user */
     $user = User::withTrashed()
-        ->where('email', $email)
+        ->whereRaw('LOWER(email) = ?', [$identifier])
+        ->orWhereRaw('LOWER(tribal_enrollment_id) = ?', [$identifier])
         ->first(['id', 'email', 'password', 'role', 'is_active', 'deleted_at', 'tribe_id']);
 
     if (! $user) {
-        $this->error("User not found: {$email}");
+        $this->error("User not found for identifier: {$email}");
 
         return self::FAILURE;
     }
@@ -323,10 +330,65 @@ Artisan::command('tdmv:debug-login {email=admin@tribe.gov} {--password=password}
     $this->line('is_active: '.($user->is_active ? 'true' : 'false'));
     $this->line('deleted_at: '.($user->deleted_at?->toDateTimeString() ?? 'null'));
     $this->line('tribe_id: '.($user->tribe_id ?? 'null'));
-    $this->line('password hash check: '.(Hash::check($password, (string) $user->password) ? 'PASS' : 'FAIL'));
+    $passwordPasses = Hash::check($password, (string) $user->password);
+    $this->line('password hash check: '.($passwordPasses ? 'PASS' : 'FAIL'));
 
-    $apiUser = User::query()->apiAuth()->where('email', $email)->first();
+    $apiUser = User::query()
+        ->apiAuth()
+        ->whereRaw('LOWER(email) = ?', [$identifier])
+        ->orWhereRaw('LOWER(tribal_enrollment_id) = ?', [$identifier])
+        ->first();
     $this->line('apiAuth() query user found: '.($apiUser ? 'yes' : 'no'));
+
+    try {
+        $resourceUser = User::query()->whereKey($user->id)->firstOrFail();
+        $relations = [];
+
+        if (Schema::hasTable('tribes')) {
+            $relations['tribe'] = fn ($query) => $query->apiPublic();
+        }
+
+        if (Schema::hasTable('notification_preferences')) {
+            $relations['notificationPreferences'] = fn ($query) => $query->apiSelect();
+        }
+
+        if ($relations !== []) {
+            $resourceUser->loadMissing($relations);
+        }
+
+        UserProfileResource::make($resourceUser)->resolve();
+        $this->line('profile serialization: PASS');
+    } catch (\Throwable $exception) {
+        $this->error('profile serialization: FAIL');
+        $this->line($exception->getMessage());
+
+        return self::FAILURE;
+    }
+
+    if (Schema::hasTable('personal_access_tokens')) {
+        try {
+            $token = $user->createToken('debug-login-token');
+            $token->accessToken->delete();
+            $this->line('token creation: PASS');
+        } catch (\Throwable $exception) {
+            $this->error('token creation: FAIL');
+            $this->line($exception->getMessage());
+
+            return self::FAILURE;
+        }
+    } else {
+        $this->error('token creation: FAIL (personal_access_tokens missing)');
+
+        return self::FAILURE;
+    }
+
+    if (! $passwordPasses || ! $apiUser || ! $user->is_active || $user->deleted_at !== null) {
+        $this->error('One or more login checks failed.');
+
+        return self::FAILURE;
+    }
+
+    $this->info('All login checks passed.');
 
     return self::SUCCESS;
 })->purpose('Debug login readiness for a specific email and password');

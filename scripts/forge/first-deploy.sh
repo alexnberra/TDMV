@@ -48,6 +48,16 @@ build_frontend_assets() {
   fi
 }
 
+ensure_laravel_paths() {
+  mkdir -p bootstrap/cache
+  mkdir -p resources/views
+  mkdir -p storage/app/public storage/app/private
+  mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/testing storage/framework/views
+  mkdir -p storage/logs
+}
+
+ensure_laravel_paths
+
 composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
 
 if [ -f package-lock.json ]; then
