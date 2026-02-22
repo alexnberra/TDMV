@@ -46,13 +46,18 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureDefaults(): void
     {
+        $allowDestructiveProd = filter_var(
+            env('TDMV_ALLOW_DESTRUCTIVE_PROD', false),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
         Date::use(CarbonImmutable::class);
         Model::preventLazyLoading(! app()->isProduction());
         Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
         Model::preventAccessingMissingAttributes(! app()->isProduction());
 
         DB::prohibitDestructiveCommands(
-            app()->isProduction(),
+            app()->isProduction() && ! $allowDestructiveProd,
         );
 
         Password::defaults(fn (): ?Password => app()->isProduction()
