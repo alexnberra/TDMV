@@ -3,13 +3,37 @@ set -Eeuo pipefail
 
 SITE_PATH="${FORGE_SITE_PATH:?FORGE_SITE_PATH is required}"
 
-case "$SITE_PATH" in
-  /*) cd "$SITE_PATH" ;;
-  *) cd "/home/forge/$SITE_PATH" ;;
-esac
-
 PHP_BIN="${FORGE_PHP:-php}"
 REQUIRED_NODE="20.19.0"
+
+resolve_release_path() {
+  if [ -n "${FORGE_RELEASE_DIRECTORY:-}" ] && [ -f "${FORGE_RELEASE_DIRECTORY}/artisan" ]; then
+    cd "${FORGE_RELEASE_DIRECTORY}"
+
+    return
+  fi
+
+  local base_path="$SITE_PATH"
+  case "$base_path" in
+    /*) ;;
+    *) base_path="/home/forge/$base_path" ;;
+  esac
+
+  if [ -f "$base_path/artisan" ]; then
+    cd "$base_path"
+
+    return
+  fi
+
+  if [ -f "$base_path/current/artisan" ]; then
+    cd "$base_path/current"
+
+    return
+  fi
+
+  echo "Unable to locate Laravel release directory for FORGE_SITE_PATH=$SITE_PATH"
+  exit 1
+}
 
 ensure_node_runtime() {
   local current_node="0.0.0"
@@ -56,6 +80,27 @@ ensure_laravel_paths() {
   mkdir -p storage/logs
 }
 
+purge_bootstrap_cache() {
+  rm -f bootstrap/cache/*.php || true
+}
+
+clear_laravel_caches() {
+  if $PHP_BIN artisan optimize:clear; then
+    return
+  fi
+
+  echo "optimize:clear failed; running selective clears and continuing..."
+  $PHP_BIN artisan config:clear || true
+  $PHP_BIN artisan cache:clear || true
+  $PHP_BIN artisan event:clear || true
+  $PHP_BIN artisan route:clear || true
+  $PHP_BIN artisan view:clear || true
+}
+
+resolve_release_path
+ensure_laravel_paths
+purge_bootstrap_cache
+
 $PHP_BIN artisan down --render="errors::503" || true
 
 # Pull latest code.
@@ -63,6 +108,7 @@ git fetch origin "${FORGE_SITE_BRANCH}"
 git checkout "${FORGE_SITE_BRANCH}"
 git pull --ff-only origin "${FORGE_SITE_BRANCH}"
 ensure_laravel_paths
+purge_bootstrap_cache
 
 # Backend dependencies.
 composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
@@ -74,7 +120,7 @@ if [ -f package-lock.json ]; then
 fi
 
 # Laravel caches and migrations.
-$PHP_BIN artisan optimize:clear
+clear_laravel_caches
 $PHP_BIN artisan tdmv:reconcile-migrations
 $PHP_BIN artisan migrate --force
 $PHP_BIN artisan tdmv:ensure-login-users --mode="${TDMV_SEED_MODE:-live}"
