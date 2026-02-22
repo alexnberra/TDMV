@@ -50,7 +50,24 @@ Artisan::command('tdmv:mode {mode : demo|live} {--fresh : Rebuild database after
     $this->info("TDMV seed mode switched to [{$mode}].");
 
     if ($this->option('fresh')) {
-        $this->call('migrate:fresh', ['--seed' => true]);
+        if (app()->environment('production')) {
+            $this->warn('Fresh rebuild is blocked in production. Running safe migrate + login-user sync instead.');
+
+            $migrateExit = $this->call('migrate', ['--force' => true]);
+            if ($migrateExit !== self::SUCCESS) {
+                return $migrateExit;
+            }
+
+            $ensureExit = $this->call('tdmv:ensure-login-users', ['--mode' => $mode]);
+            if ($ensureExit !== self::SUCCESS) {
+                return $ensureExit;
+            }
+        } else {
+            $freshExit = $this->call('migrate:fresh', ['--seed' => true]);
+            if ($freshExit !== self::SUCCESS) {
+                return $freshExit;
+            }
+        }
     } else {
         $this->line('Run `php artisan db:seed` (or use `--fresh`) to apply the selected mode data.');
     }
@@ -58,9 +75,99 @@ Artisan::command('tdmv:mode {mode : demo|live} {--fresh : Rebuild database after
     return self::SUCCESS;
 })->purpose('Switch between demo and live seed modes');
 
-Artisan::command('tdmv:smoke {--fresh : Rebuild and seed before smoke tests}', function () {
+Artisan::command('tdmv:smoke {--fresh : Rebuild and seed before smoke tests} {--runtime : Force production-safe runtime checks}', function () {
+    $runRuntimeSmoke = function (): int {
+        $requiredTables = [
+            'users',
+            'tribes',
+            'vehicles',
+            'applications',
+            'documents',
+            'payments',
+            'notification_preferences',
+            'application_timeline',
+            'office_locations',
+            'faqs',
+            'personal_access_tokens',
+            'workflow_rules',
+            'assistant_interactions',
+        ];
+
+        $missingTables = collect($requiredTables)
+            ->reject(fn (string $table): bool => Schema::hasTable($table))
+            ->values()
+            ->all();
+
+        if ($missingTables !== []) {
+            $this->error('Runtime smoke failed. Missing tables: '.implode(', ', $missingTables));
+
+            return self::FAILURE;
+        }
+
+        $mode = config('tdmv.seed_mode', 'live');
+        $ensureExit = $this->call('tdmv:ensure-login-users', ['--mode' => $mode]);
+        if ($ensureExit !== self::SUCCESS) {
+            return $ensureExit;
+        }
+
+        $debugTargets = ['admin@tribe.gov'];
+        if ($mode === 'demo') {
+            $debugTargets = array_merge($debugTargets, [
+                'john@example.com',
+                'jane@example.com',
+                'ava@example.com',
+            ]);
+        }
+
+        foreach ($debugTargets as $email) {
+            $debugExit = $this->call('tdmv:debug-login', [
+                'email' => $email,
+                '--password' => 'password',
+            ]);
+
+            if ($debugExit !== self::SUCCESS) {
+                return $debugExit;
+            }
+        }
+
+        $this->line('users_count: '.User::count());
+        $this->line('tribes_count: '.Tribe::count());
+        $this->line('vehicles_count: '.DB::table('vehicles')->count());
+        $this->line('applications_count: '.DB::table('applications')->count());
+        $this->line('documents_count: '.DB::table('documents')->count());
+        $this->line('payments_count: '.DB::table('payments')->count());
+
+        $this->info('Runtime smoke checks passed.');
+
+        return self::SUCCESS;
+    };
+
     if ($this->option('fresh')) {
-        $this->call('migrate:fresh', ['--seed' => true]);
+        if (app()->environment('production')) {
+            $this->warn('Fresh rebuild is blocked in production. Running migrate --force instead.');
+            $migrateExit = $this->call('migrate', ['--force' => true]);
+
+            if ($migrateExit !== self::SUCCESS) {
+                return $migrateExit;
+            }
+        } else {
+            $freshExit = $this->call('migrate:fresh', ['--seed' => true]);
+
+            if ($freshExit !== self::SUCCESS) {
+                return $freshExit;
+            }
+        }
+    }
+
+    if ($this->option('runtime')) {
+        return $runRuntimeSmoke();
+    }
+
+    $hasTestCommand = array_key_exists('test', Artisan::all());
+    if (! $hasTestCommand) {
+        $this->warn('`artisan test` is unavailable (likely production --no-dev). Running runtime smoke fallback.');
+
+        return $runRuntimeSmoke();
     }
 
     $result = Process::timeout(300)->run(
