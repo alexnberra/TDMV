@@ -32,6 +32,9 @@ class AuthController extends Controller
             'zip_code' => 'required|string|max:20',
         ]);
 
+        $validated['email'] = Str::lower(trim($validated['email']));
+        $validated['tribal_enrollment_id'] = trim($validated['tribal_enrollment_id']);
+
         $user = User::create([
             ...$validated,
             'name' => trim($validated['first_name'].' '.$validated['last_name']),
@@ -51,14 +54,23 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|string|max:255',
             'password' => 'required|string',
         ]);
 
+        $identifier = trim(Str::lower($validated['email']));
+
         $user = User::query()
             ->apiAuth()
-            ->where('email', $validated['email'])
+            ->whereRaw('LOWER(email) = ?', [$identifier])
             ->first();
+
+        if (! $user) {
+            $user = User::query()
+                ->apiAuth()
+                ->whereRaw('LOWER(tribal_enrollment_id) = ?', [$identifier])
+                ->first();
+        }
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
             return response()->json([
